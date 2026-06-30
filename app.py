@@ -5,9 +5,25 @@ import re
 import streamlit as st
 from datetime import datetime
 
-st.set_page_config(page_title="MWD Troubleshooting Assistant", page_icon="🏗️", layout="wide")
+RIG_MARK_SVG = """
+<svg aria-hidden="true" width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <path d="M24 4 8 44h32L24 4Z" fill="none" stroke="#f97316" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M24 4v40M14 28h20M18 18h12M13 40l22-28M35 40 13 12" fill="none" stroke="#f8fafc" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M20 44h8" stroke="#f97316" stroke-width="3" stroke-linecap="round"/>
+</svg>
+"""
 
-st.title("🏗️ MWD Troubleshooting Assistant")
+st.set_page_config(page_title="MWD Troubleshooting Assistant", page_icon="🛢️", layout="wide")
+
+st.markdown(
+    f"""
+    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin:0.1rem 0 0.4rem;">
+        <span style="display:inline-flex;align-items:center;">{RIG_MARK_SVG}</span>
+        <h1 style="margin:0;line-height:1.15;">MWD Troubleshooting Assistant</h1>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 st.caption("Prototype MVP: guided troubleshooting for No Pulse, Pulse Present / Not Decoding, Weak Pulses, and Downlink Issues")
 
 PROBLEM_OPTIONS = ["No Pulses Detected", "Pulses Present But Not Decoding", "Weak Pulses", "Downlink Failed"]
