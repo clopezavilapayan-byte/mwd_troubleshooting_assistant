@@ -130,6 +130,8 @@ if run:
             st.write(step["details"])
             st.checkbox("Completed", key=f"step_{i}")
 
+    causes_text = "\n- ".join(causes)
+    steps_text = "\n".join([f"{i+1}. {s['title']} ({s['area']}): {s['details']}" for i, s in enumerate(steps)])
     report = f"""
 MWD Troubleshooting Report
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
@@ -147,7 +149,11 @@ SPP Stable: {spp_stable}
 Downlink Enabled: {downlink_enabled}
 
 Likely Causes:
-- " + "\n- ".join(causes) + "\n\nSteps:\n" + "\n".join([f"{i+1}. {s['title']} ({s['area']}): {s['details']}" for i, s in enumerate(steps)])
+- {causes_text}
+
+Steps:
+{steps_text}
+"""
     st.download_button("Download Report", report, file_name="mwd_troubleshooting_report.txt")
 
 st.divider()
