@@ -5,9 +5,9 @@ import re
 import streamlit as st
 from datetime import datetime
 
-st.set_page_config(page_title="MWD Troubleshooting Assistant", page_icon="🛠️", layout="wide")
+st.set_page_config(page_title="MWD Troubleshooting Assistant", page_icon="🏗️", layout="wide")
 
-st.title("🛠️ MWD Troubleshooting Assistant")
+st.title("🏗️ MWD Troubleshooting Assistant")
 st.caption("Prototype MVP: guided troubleshooting for No Pulse, Pulse Present / Not Decoding, Weak Pulses, and Downlink Issues")
 
 PROBLEM_OPTIONS = ["No Pulses Detected", "Pulses Present But Not Decoding", "Weak Pulses", "Downlink Failed"]
