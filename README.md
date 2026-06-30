@@ -1,6 +1,6 @@
 # MWD Coach AI / MWD Troubleshooting Assistant
 
-Streamlit MVP for MWD mud pulse troubleshooting, pump diagnostics, and field case capture.
+Streamlit MVP for MWD mud pulse troubleshooting, pump diagnostics, survey program checks, and field case capture.
 
 ## Run locally
 
@@ -27,6 +27,11 @@ streamlit run app.py
   - Reads the latest populated CSV row
   - Infers the problem from common rig-data column names
   - Auto-runs the diagnostic when data is received
+- Survey Program Analyzer
+  - Uploads text-based survey program PDFs
+  - Extracts well, geomagnetic, coordinate, and survey QC fields
+  - Compares survey program values against current DataModel / MWDRun setup
+  - Saves survey program JSON records
 - KB-0001 field case:
   - iCruise SHT, MPX, MWDRun/DataModel 3.414
   - Pump 2 at ~800 psi visible pulses/no sync
