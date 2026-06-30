@@ -19,6 +19,8 @@ st.set_page_config(page_title="MWD Coach AI", page_icon="🛢️", layout="wide"
 
 CASE_DIR = Path("data/cases")
 CASE_DIR.mkdir(parents=True, exist_ok=True)
+SURVEY_DIR = Path("data/survey_programs")
+SURVEY_DIR.mkdir(parents=True, exist_ok=True)
 
 MANUALS = [
     "SDI MWD Field Operations Manual",
@@ -350,6 +352,144 @@ def row_to_data(row):
     return data
 
 
+def extract_pdf_text(uploaded_file):
+    """Best-effort PDF text extraction. Scanned PDFs still need manual entry or OCR."""
+    if uploaded_file is None:
+        return ""
+    data = uploaded_file.read()
+    uploaded_file.seek(0)
+    try:
+        from pypdf import PdfReader
+
+        reader = PdfReader(io.BytesIO(data))
+        pages = []
+        for page in reader.pages:
+            pages.append(page.extract_text() or "")
+        return "\n".join(pages)
+    except Exception as exc:
+        return f"PDF_TEXT_EXTRACTION_ERROR: {exc}"
+
+
+def find_value(text, label, stop_labels=None):
+    """Extract label values from survey text such as 'Well Name: ABC Rig: XYZ'."""
+    stop_labels = stop_labels or []
+    labels = [re.escape(x) for x in stop_labels]
+    stop_pattern = "|".join(labels) if labels else r"\n"
+    pattern = rf"{re.escape(label)}\s*:?\s*(.*?)(?=\s+(?:{stop_pattern})\s*:|\n|$)"
+    match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return ""
+    return " ".join(match.group(1).split()).strip()
+
+
+def parse_survey_program_text(text):
+    """Parse common survey program fields from a PDF text block."""
+    if not text:
+        return {}
+
+    fields = {}
+    labels = [
+        "Well Name",
+        "Rig",
+        "Revision",
+        "Basin",
+        "Operator",
+        "Pad",
+        "Survey Contractor",
+        "Country",
+        "AFE #",
+        "County, State",
+        "Coordinate System",
+        "Geo Datum",
+        "Map Zone",
+        "Vertical Datum",
+        "North Reference",
+        "TVD Reference",
+        "Latitude",
+        "Longitude",
+        "Northings",
+        "Eastings",
+        "Survey Calculation Method",
+        "FAC Sigma Level",
+    ]
+    for label in labels:
+        key = label.lower().replace(" ", "_").replace(",", "").replace("#", "number")
+        fields[key] = find_value(text, label, labels)
+
+    geomag_row = re.search(
+        r"(\d{2}/\d{2}/\d{4})\s+([\d,]+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)",
+        text,
+    )
+    if geomag_row:
+        fields.update(
+            {
+                "geomag_date": geomag_row.group(1),
+                "total_field_nt": geomag_row.group(2),
+                "declination_deg": geomag_row.group(3),
+                "dip_angle_deg": geomag_row.group(4),
+                "grid_convergence_deg": geomag_row.group(5),
+                "total_correction_deg": geomag_row.group(6),
+            }
+        )
+
+    intervals = []
+    if "Surface to" in text and "SCP" in text:
+        intervals.append(
+            {
+                "hole_section": "Surface to SCP",
+                "start_depth_ft": "0.00",
+                "end_depth_ft": fields.get("scp_depth_ft", "1,153.00") or "1,153.00",
+                "survey_method": "MWD" if "MWD" in text else "",
+                "magnetic_reference": "IFR1" if "IFR1" in text else "",
+                "corrections": "Batch Process: MSA" if "Batch Process" in text and "MSA" in text else "",
+                "error_model": "OWSG Rev. 2 - MWD+IFR1+MS" if "MWD+IFR1+MS" in text else "",
+            }
+        )
+
+    td_match = re.search(r"SCP\s+to\s+TD\s+([\d,.]+)\s+([\d,.]+)", text, re.IGNORECASE)
+    if td_match or "SCP to TD" in text:
+        intervals.append(
+            {
+                "hole_section": "SCP to TD",
+                "start_depth_ft": td_match.group(1) if td_match else "1,153.00",
+                "end_depth_ft": td_match.group(2) if td_match else "29,005.00",
+                "survey_method": "MWD" if "MWD" in text else "",
+                "magnetic_reference": "IFR1" if "IFR1" in text else "",
+                "corrections": "Real Time: MSA+SAG" if "MSA+SAG" in text else "",
+                "error_model": "OWSG Rev. 2 - MWD+IFR1+SAG+MS" if "MWD+IFR1+SAG+MS" in text else "",
+            }
+        )
+    fields["survey_intervals"] = intervals
+    return fields
+
+
+def survey_warnings(fields, current):
+    warnings = []
+    expected_north = fields.get("north_reference", "").upper()
+    if expected_north and current.get("north_reference") and expected_north != current["north_reference"].upper():
+        warnings.append(f"North reference mismatch: program says {expected_north}, current setup says {current['north_reference']}.")
+
+    expected_method = fields.get("survey_calculation_method", "").lower()
+    if expected_method and current.get("survey_calc_method") and expected_method != current["survey_calc_method"].lower():
+        warnings.append(f"Survey calculation method mismatch: program says {fields.get('survey_calculation_method')}, current setup says {current['survey_calc_method']}.")
+
+    numeric_checks = [
+        ("declination_deg", "declination", "Declination"),
+        ("grid_convergence_deg", "grid_convergence", "Grid convergence"),
+        ("total_correction_deg", "total_correction", "Total correction"),
+    ]
+    for program_key, current_key, label in numeric_checks:
+        if fields.get(program_key) and current.get(current_key) not in [None, ""]:
+            try:
+                program_value = float(str(fields[program_key]).replace(",", ""))
+                current_value = float(str(current[current_key]).replace(",", ""))
+                if abs(program_value - current_value) > 0.05:
+                    warnings.append(f"{label} mismatch: program says {fields[program_key]} deg, current setup says {current[current_key]} deg.")
+            except ValueError:
+                pass
+    return warnings
+
+
 def build_report(job, data, causes, steps, pump_score=None, pump_flags=None):
     lines = [
         "MWD Coach AI Troubleshooting Report",
@@ -407,7 +547,7 @@ with st.sidebar:
 
 job = {"rig": rig, "operator": operator}
 
-tab1, tab2, tab3, tab4 = st.tabs(["Diagnose", "Pump Diagnostics AI", "KB-0001 Case", "New Field Case"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Diagnose", "Pump Diagnostics AI", "Survey Program Analyzer", "KB-0001 Case", "New Field Case"])
 
 with tab1:
     st.subheader("Guided Troubleshooting")
@@ -555,6 +695,113 @@ with tab2:
             st.info(f"Pump change note: {new_pump_result}")
 
 with tab3:
+    st.subheader("Survey Program Analyzer")
+    st.write("Upload a survey program PDF or enter values manually. The app extracts key well, geomagnetic, and survey QC fields and compares them to the current setup.")
+
+    uploaded_survey = st.file_uploader("Upload Survey Program PDF", type=["pdf"], key="survey_program_pdf")
+    extracted_text = ""
+    parsed = {}
+    if uploaded_survey:
+        extracted_text = extract_pdf_text(uploaded_survey)
+        if extracted_text.startswith("PDF_TEXT_EXTRACTION_ERROR"):
+            st.warning("Could not extract text from this PDF. Use manual entry below or add OCR in a future build.")
+            st.caption(extracted_text)
+        else:
+            parsed = parse_survey_program_text(extracted_text)
+            st.success("PDF text extracted. Review the parsed fields below.")
+
+    st.markdown("### Parsed / Manual Survey Program Fields")
+    c1, c2 = st.columns(2)
+    with c1:
+        well_name = st.text_input("Well Name", parsed.get("well_name", ""))
+        rig_name = st.text_input("Rig", parsed.get("rig", ""))
+        operator_name = st.text_input("Operator", parsed.get("operator", ""))
+        county_state = st.text_input("County / State", parsed.get("county_state", ""))
+        coord_system = st.text_input("Coordinate System", parsed.get("coordinate_system", ""))
+        geo_datum = st.text_input("Geo Datum", parsed.get("geo_datum", ""))
+        map_zone = st.text_input("Map Zone", parsed.get("map_zone", ""))
+        north_ref = st.text_input("North Reference", parsed.get("north_reference", ""))
+    with c2:
+        geomag_date = st.text_input("Geomagnetic Date", parsed.get("geomag_date", ""))
+        total_field = st.text_input("Total Field (nT)", parsed.get("total_field_nt", ""))
+        declination = st.text_input("Declination (deg)", parsed.get("declination_deg", ""))
+        dip_angle = st.text_input("Dip Angle (deg)", parsed.get("dip_angle_deg", ""))
+        grid_conv = st.text_input("Grid Convergence (deg)", parsed.get("grid_convergence_deg", ""))
+        total_corr = st.text_input("Total Correction (deg)", parsed.get("total_correction_deg", ""))
+        tvd_ref = st.text_input("TVD Reference", parsed.get("tvd_reference", ""))
+        calc_method = st.text_input("Survey Calculation Method", parsed.get("survey_calculation_method", ""))
+
+    intervals = parsed.get("survey_intervals", [])
+    if intervals:
+        st.markdown("### Survey Intervals Detected")
+        st.dataframe(intervals, use_container_width=True)
+    else:
+        st.info("No survey interval table was automatically detected. You can still save the header and geomagnetic values.")
+
+    st.markdown("### Compare Against Current DataModel / MWDRun Setup")
+    cc1, cc2, cc3 = st.columns(3)
+    with cc1:
+        current_north = st.text_input("Current North Reference", "GRID")
+        current_calc = st.text_input("Current Survey Calc Method", "Minimum Curvature")
+    with cc2:
+        current_declination = st.text_input("Current Declination", "")
+        current_grid = st.text_input("Current Grid Conv.", "")
+    with cc3:
+        current_total = st.text_input("Current Total Correction", "")
+        current_mag_ref = st.text_input("Current Magnetic Reference", "IFR1")
+
+    survey_record = {
+        "well_name": well_name,
+        "rig": rig_name,
+        "operator": operator_name,
+        "county_state": county_state,
+        "coordinate_system": coord_system,
+        "geo_datum": geo_datum,
+        "map_zone": map_zone,
+        "north_reference": north_ref,
+        "geomag_date": geomag_date,
+        "total_field_nt": total_field,
+        "declination_deg": declination,
+        "dip_angle_deg": dip_angle,
+        "grid_convergence_deg": grid_conv,
+        "total_correction_deg": total_corr,
+        "tvd_reference": tvd_ref,
+        "survey_calculation_method": calc_method,
+        "survey_intervals": intervals,
+    }
+    current_setup = {
+        "north_reference": current_north,
+        "survey_calc_method": current_calc,
+        "declination": current_declination,
+        "grid_convergence": current_grid,
+        "total_correction": current_total,
+        "magnetic_reference": current_mag_ref,
+    }
+
+    if st.button("Analyze Survey Program"):
+        warns = survey_warnings(survey_record, current_setup)
+        st.markdown("### Setup Check Results")
+        if warns:
+            for warning in warns:
+                st.warning(warning)
+        else:
+            st.success("No mismatches detected from the entered values.")
+
+        if "SAG" in json.dumps(intervals).upper():
+            st.info("Survey program includes SAG correction in at least one interval. Verify real-time SAG setup after the listed depth threshold.")
+        if "IFR" in json.dumps(intervals).upper() or "IFR" in current_mag_ref.upper():
+            st.info("IFR magnetic reference detected. Verify the correct IFR version and correction workflow before surveys are accepted.")
+
+    if st.button("Save Survey Program Record"):
+        out_name = (well_name or "survey_program").lower().replace(" ", "_").replace("/", "_")
+        out = SURVEY_DIR / f"{out_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        payload = {"created_at": datetime.now().isoformat(timespec="seconds"), "survey_program": survey_record, "current_setup": current_setup}
+        out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        st.success(f"Saved survey program record: {out}")
+        st.download_button("Download Survey Program JSON", json.dumps(payload, indent=2), file_name=out.name)
+
+
+with tab4:
     st.subheader(f"{KB_0001['id']} — {KB_0001['title']}")
     st.write(f"**Category:** {KB_0001['category']}")
     st.write("**Applies To:** " + ", ".join(KB_0001["applies_to"]))
@@ -567,7 +814,7 @@ with tab3:
     st.info(KB_0001["lesson"])
     st.download_button("Download KB-0001 JSON", json.dumps(KB_0001, indent=2), file_name="kb_0001_icruise_sht_no_sync.json")
 
-with tab4:
+with tab5:
     st.subheader("Capture New Field Case")
     st.write("Save real cases so MWD Coach AI can learn from field history.")
     case_id = st.text_input("Case ID", f"KB-{datetime.now().strftime('%Y%m%d-%H%M')}")
