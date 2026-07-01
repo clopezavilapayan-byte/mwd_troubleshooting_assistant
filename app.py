@@ -138,6 +138,7 @@ h3 {
     color: var(--mwd-text);
 }
 
+button[data-baseweb="tab"],
 div[data-testid="stTabs"] button[data-baseweb="tab"] {
     color: var(--mwd-muted);
     border-radius: 8px 8px 0 0;
@@ -145,16 +146,19 @@ div[data-testid="stTabs"] button[data-baseweb="tab"] {
     min-height: 2.75rem;
 }
 
+button[data-baseweb="tab"]:hover,
 div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
     color: var(--mwd-text);
     background: rgba(56, 189, 248, 0.08);
 }
 
+button[data-baseweb="tab"][aria-selected="true"],
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
     color: var(--mwd-accent);
     background: rgba(249, 115, 22, 0.08);
 }
 
+[data-baseweb="tab-highlight"],
 div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
     background-color: var(--mwd-accent);
     height: 3px;
@@ -748,12 +752,12 @@ st.markdown(APP_STYLES, unsafe_allow_html=True)
 
 st.markdown(
     f"""
-    <div class="app-header">
-        <span class="rig-logo">{RIG_MARK_SVG}</span>
-        <div class="app-title-block">
-            <div class="app-kicker">MWD Field Operations</div>
-            <h1>MWD Coach AI</h1>
-            <p>Real-time MWD troubleshooting assistant for mud pulse decode, pump diagnostics, survey checks, verified procedures, and field case capture.</p>
+    <div class="app-header" style="display:flex;align-items:center;gap:1rem;padding:0.8rem 0 1.2rem;margin-bottom:0.85rem;border-bottom:1px solid #2b3a48;">
+        <span class="rig-logo" style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;flex:0 0 64px;border:1px solid #2b3a48;border-radius:8px;background:#101923;">{RIG_MARK_SVG}</span>
+        <div class="app-title-block" style="min-width:0;">
+            <div class="app-kicker" style="margin:0 0 0.18rem;color:#38bdf8;font-size:0.78rem;font-weight:700;letter-spacing:0;text-transform:uppercase;">MWD Field Ops</div>
+            <h1 style="margin:0;color:#e6edf3;line-height:1.05;font-size:3rem;letter-spacing:0;">MWD Coach AI</h1>
+            <p style="margin:0.55rem 0 0;color:#9fb0bf;font-size:0.98rem;line-height:1.45;">Real-time MWD troubleshooting assistant for mud pulse decode, pump diagnostics, survey checks, verified procedures, and field case capture.</p>
         </div>
     </div>
     """,
