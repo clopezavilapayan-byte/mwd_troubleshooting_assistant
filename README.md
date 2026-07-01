@@ -1,6 +1,6 @@
-# MWD Coach AI / MWD Troubleshooting Assistant
+# SDI FieldOps AI
 
-Streamlit MVP for real-time MWD monitoring, screenshot review, mud pulse troubleshooting, pump diagnostics, survey program checks, verified procedures, and field case capture.
+Scientific Drilling International field operations prototype for real-time MWD monitoring, screenshot review, mud pulse troubleshooting, pump diagnostics, survey program checks, verified procedures, and field case capture.
 
 ## Run locally
 
