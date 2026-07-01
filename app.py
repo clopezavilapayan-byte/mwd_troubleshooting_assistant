@@ -9,6 +9,7 @@ import streamlit as st
 
 from engine.alert_engine import analyze_mwd_data
 from engine.case_log import load_cases, save_case
+from engine.image_analyzer import create_image_review_case, save_uploaded_image
 from engine.procedures import PROCEDURES
 
 RIG_MARK_SVG = """
@@ -551,9 +552,10 @@ with st.sidebar:
 
 job = {"rig": rig, "operator": operator}
 
-live_tab, tab1, tab2, tab3, procedures_tab, history_tab, tab4, tab5 = st.tabs(
+live_tab, screenshot_tab, tab1, tab2, tab3, procedures_tab, history_tab, tab4, tab5 = st.tabs(
     [
         "Live Monitor",
+        "Screenshot Review",
         "Diagnose",
         "Pump Diagnostics AI",
         "Survey Program Analyzer",
@@ -635,6 +637,117 @@ with live_tab:
     if st.button("Save Current Monitor Case", key="save_live_monitor_case"):
         save_case(live_data, live_alerts)
         st.success("Case saved to Case History.")
+
+
+with screenshot_tab:
+    st.subheader("Screenshot Review")
+    st.write("Upload screenshots from MWDRun, Pason, EDR, RSS, or rig displays. Review the image, confirm the values, then run the alert engine.")
+
+    source_type = st.selectbox("Screenshot Type", ["MWDRun", "Pason / EDR", "RSS", "Other"], key="screenshot_source_type")
+    uploaded_images = st.file_uploader(
+        "Import Screenshot(s)",
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True,
+        key="screenshot_uploads",
+    )
+    screenshot_notes = st.text_area(
+        "What problem are you trying to solve?",
+        placeholder="Example: Visible pulses but no sync, decode confidence dropping, pump issue suspected...",
+        key="screenshot_notes",
+    )
+
+    saved_image_cases = []
+    if uploaded_images:
+        st.markdown("### Uploaded Screenshots")
+        for uploaded_file in uploaded_images:
+            image_path = save_uploaded_image(uploaded_file, source_type)
+            image_case = create_image_review_case(image_path, source_type, screenshot_notes)
+            saved_image_cases.append(image_case)
+
+            st.image(uploaded_file, caption=f"{source_type}: {uploaded_file.name}", use_column_width=True)
+            st.info(f"Saved image for review: {image_path}")
+
+    st.markdown("### Confirm Values From Screenshot")
+    st.caption("Use the screenshot to verify these values. The AI will use confirmed values for troubleshooting.")
+
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1:
+        screenshot_spp = st.number_input("Standpipe Pressure (psi)", min_value=0.0, value=4568.0, step=25.0, key="screenshot_spp")
+        screenshot_pump_rate = st.number_input("Pump Rate (GPM)", min_value=0.0, value=352.0, step=5.0, key="screenshot_pump_rate")
+        screenshot_flow = st.number_input("Flow (%)", min_value=0.0, value=45.0, step=1.0, key="screenshot_flow")
+        screenshot_pulse_pressure = st.number_input("Pulse Pressure (psi)", min_value=0.0, value=16.7, step=0.5, key="screenshot_pulse_pressure")
+    with sc2:
+        screenshot_decode_confidence = st.number_input("Decode Confidence (%)", min_value=0.0, max_value=100.0, value=100.0, step=1.0, key="screenshot_decode_confidence")
+        screenshot_correlation = st.number_input("Correlation", min_value=0.0, value=96.2, step=0.1, key="screenshot_correlation")
+        screenshot_correlation_margin = st.number_input("Correlation Margin", min_value=0.0, value=29.0, step=0.5, key="screenshot_correlation_margin")
+        screenshot_sync_status = st.selectbox("Sync Status", ["HST", "Sync Hunt", "No Sync", "Poor Sync"], key="screenshot_sync_status")
+    with sc3:
+        screenshot_wob = st.number_input("WOB (klb)", min_value=0.0, value=13.7, step=0.5, key="screenshot_wob")
+        screenshot_rpm = st.number_input("RPM", min_value=0.0, value=90.0, step=1.0, key="screenshot_rpm")
+        screenshot_torque = st.number_input("Torque (klb-ft)", min_value=0.0, value=9.0, step=0.5, key="screenshot_torque")
+        screenshot_lateral_vib = st.number_input("Lateral Vibration", min_value=0.0, value=16.7, step=0.5, key="screenshot_lateral_vib")
+        screenshot_stick_slip = st.number_input("Stick-Slip Risk", min_value=0.0, value=0.0, step=0.5, key="screenshot_stick_slip")
+
+    screenshot_data = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "rig_well": rig,
+        "operator": operator,
+        "source": "Screenshot Review",
+        "source_type": source_type,
+        "spp": screenshot_spp,
+        "pump_rate": screenshot_pump_rate,
+        "flow": screenshot_flow,
+        "pulse_pressure": screenshot_pulse_pressure,
+        "decode_confidence": screenshot_decode_confidence,
+        "correlation": screenshot_correlation,
+        "correlation_margin": screenshot_correlation_margin,
+        "sync_status": screenshot_sync_status,
+        "wob": screenshot_wob,
+        "rpm": screenshot_rpm,
+        "torque": screenshot_torque,
+        "lateral_vib": screenshot_lateral_vib,
+        "stick_slip": screenshot_stick_slip,
+        "image_cases": saved_image_cases,
+        "problem_notes": screenshot_notes,
+    }
+    screenshot_alerts = analyze_mwd_data(screenshot_data)
+
+    if st.button("Analyze Screenshot Case", key="analyze_screenshot_case"):
+        st.subheader("AI Assessment")
+        if not screenshot_alerts:
+            st.success("No major abnormalities detected from the confirmed values.")
+        else:
+            for alert in screenshot_alerts:
+                if alert["level"] == "CRITICAL":
+                    st.error(f'{alert["level"]}: {alert["problem"]}')
+                elif alert["level"] == "WARNING":
+                    st.warning(f'{alert["level"]}: {alert["problem"]}')
+                else:
+                    st.info(f'{alert["level"]}: {alert["problem"]}')
+
+                st.markdown("**Evidence**")
+                for item in alert["evidence"]:
+                    st.write(f"- {item}")
+
+                st.markdown("**Likely Cause**")
+                st.write(alert["likely_cause"])
+
+                st.markdown("**Recommended Action**")
+                for step in alert["recommended_action"]:
+                    st.write(f"- {step}")
+
+                st.markdown("**Verified Procedure Source**")
+                st.write(alert["procedure_source"])
+                st.divider()
+
+        if saved_image_cases:
+            st.markdown("### Image Review Case")
+            for item in saved_image_cases:
+                st.json(item)
+
+    if st.button("Save Screenshot Case", key="save_screenshot_case"):
+        save_case(screenshot_data, screenshot_alerts)
+        st.success("Screenshot case saved to Case History.")
 
 with tab1:
     st.subheader("Guided Troubleshooting")
