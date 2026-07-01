@@ -22,6 +22,222 @@ RIG_MARK_SVG = """
 
 st.set_page_config(page_title="MWD Coach AI", page_icon="🛢️", layout="wide")
 
+APP_STYLES = """
+<style>
+:root {
+    --mwd-bg: #0b1117;
+    --mwd-panel: #111923;
+    --mwd-panel-soft: #151f2b;
+    --mwd-line: #2b3a48;
+    --mwd-text: #e6edf3;
+    --mwd-muted: #9fb0bf;
+    --mwd-accent: #f97316;
+    --mwd-blue: #38bdf8;
+    --mwd-green: #22c55e;
+}
+
+.stApp {
+    background: var(--mwd-bg);
+    color: var(--mwd-text);
+}
+
+[data-testid="stAppViewContainer"] > .main {
+    background:
+        linear-gradient(180deg, rgba(56, 189, 248, 0.05), transparent 260px),
+        var(--mwd-bg);
+}
+
+[data-testid="stHeader"] {
+    background: transparent;
+}
+
+[data-testid="stToolbar"] {
+    right: 1rem;
+}
+
+.block-container {
+    max-width: 1280px;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+}
+
+section[data-testid="stSidebar"] {
+    background: #111820;
+    border-right: 1px solid var(--mwd-line);
+}
+
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+    gap: 0.85rem;
+}
+
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: var(--mwd-text);
+    letter-spacing: 0;
+}
+
+.app-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem 0 1.2rem;
+    margin-bottom: 0.85rem;
+    border-bottom: 1px solid var(--mwd-line);
+}
+
+.rig-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    flex: 0 0 64px;
+    border: 1px solid var(--mwd-line);
+    border-radius: 8px;
+    background: #101923;
+}
+
+.rig-logo svg {
+    width: 46px;
+    height: 46px;
+}
+
+.app-title-block {
+    min-width: 0;
+}
+
+.app-kicker {
+    margin: 0 0 0.18rem;
+    color: var(--mwd-blue);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.app-title-block h1 {
+    margin: 0;
+    color: var(--mwd-text);
+    line-height: 1.05;
+    font-size: 3rem;
+    letter-spacing: 0;
+}
+
+.app-title-block p {
+    margin: 0.55rem 0 0;
+    color: var(--mwd-muted);
+    font-size: 0.98rem;
+    line-height: 1.45;
+}
+
+h2, h3 {
+    letter-spacing: 0;
+}
+
+h3 {
+    color: var(--mwd-text);
+}
+
+div[data-testid="stTabs"] button[data-baseweb="tab"] {
+    color: var(--mwd-muted);
+    border-radius: 8px 8px 0 0;
+    padding: 0.72rem 0.9rem;
+    min-height: 2.75rem;
+}
+
+div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+    color: var(--mwd-text);
+    background: rgba(56, 189, 248, 0.08);
+}
+
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+    color: var(--mwd-accent);
+    background: rgba(249, 115, 22, 0.08);
+}
+
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+    background-color: var(--mwd-accent);
+    height: 3px;
+}
+
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-baseweb="select"] > div {
+    background-color: var(--mwd-panel) !important;
+    border: 1px solid var(--mwd-line) !important;
+    border-radius: 8px !important;
+    color: var(--mwd-text) !important;
+}
+
+[data-testid="stFileUploader"] section {
+    background: var(--mwd-panel);
+    border: 1px dashed #436174;
+    border-radius: 8px;
+}
+
+[data-testid="stFileUploader"] button,
+.stButton > button,
+[data-testid="stDownloadButton"] button {
+    border-radius: 8px;
+    border: 1px solid rgba(249, 115, 22, 0.55);
+    background: var(--mwd-accent);
+    color: #111820;
+    font-weight: 700;
+}
+
+.stButton > button:hover,
+[data-testid="stDownloadButton"] button:hover {
+    border-color: #fed7aa;
+    background: #fb923c;
+    color: #111820;
+}
+
+[data-testid="stExpander"] {
+    background: rgba(17, 25, 35, 0.72);
+    border: 1px solid var(--mwd-line);
+    border-radius: 8px;
+}
+
+[data-testid="stDataFrame"],
+[data-testid="stTable"] {
+    border: 1px solid var(--mwd-line);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+[data-testid="stAlert"] {
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+hr {
+    border-color: var(--mwd-line);
+}
+
+@media (max-width: 760px) {
+    .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .app-header {
+        align-items: flex-start;
+    }
+
+    .rig-logo {
+        width: 54px;
+        height: 54px;
+        flex-basis: 54px;
+    }
+
+    .app-title-block h1 {
+        font-size: 2.15rem;
+    }
+}
+</style>
+"""
+
 CASE_DIR = Path("data/cases")
 CASE_DIR.mkdir(parents=True, exist_ok=True)
 SURVEY_DIR = Path("data/survey_programs")
@@ -528,16 +744,21 @@ def build_report(job, data, causes, steps, pump_score=None, pump_flags=None):
 # UI
 # -----------------------------
 
+st.markdown(APP_STYLES, unsafe_allow_html=True)
+
 st.markdown(
     f"""
-    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin:0.1rem 0 0.4rem;">
-        <span style="display:inline-flex;align-items:center;">{RIG_MARK_SVG}</span>
-        <h1 style="margin:0;line-height:1.15;">MWD Coach AI</h1>
+    <div class="app-header">
+        <span class="rig-logo">{RIG_MARK_SVG}</span>
+        <div class="app-title-block">
+            <div class="app-kicker">MWD Field Operations</div>
+            <h1>MWD Coach AI</h1>
+            <p>Real-time MWD troubleshooting assistant for mud pulse decode, pump diagnostics, survey checks, verified procedures, and field case capture.</p>
+        </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
-st.caption("Real-time MWD troubleshooting assistant for mud pulse decode, pump diagnostics, survey checks, verified procedures, and field case capture.")
 
 with st.sidebar:
     st.header("Job Info")
