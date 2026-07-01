@@ -1,6 +1,6 @@
 # MWD Coach AI / MWD Troubleshooting Assistant
 
-Streamlit MVP for real-time MWD monitoring, mud pulse troubleshooting, pump diagnostics, survey program checks, verified procedures, and field case capture.
+Streamlit MVP for real-time MWD monitoring, screenshot review, mud pulse troubleshooting, pump diagnostics, survey program checks, verified procedures, and field case capture.
 
 ## Run locally
 
@@ -16,6 +16,12 @@ streamlit run app.py
   - Alerts for no sync, weak pulses, decode confidence/correlation drops, lateral vibration, and stick-slip risk
   - Evidence, likely cause, recommended action, and verified procedure source for each alert
   - Save monitor snapshots into Case History
+- Screenshot Review
+  - Upload MWDRun, Pason, EDR, RSS, or rig-display screenshots
+  - Preview uploaded images in the app
+  - Confirm drilling and MWD values from the screenshot
+  - Analyze confirmed values with the alert engine
+  - Save screenshot cases into Case History
 - Guided troubleshooting for:
   - No Pulses Detected
   - Visible Pulses / No Sync
@@ -62,6 +68,8 @@ streamlit run app.py
 
 ## Next upgrades
 
+- Add OCR from MWDRun / Pason screenshots
+- Add computer vision extraction of visible parameters
 - Add PDF knowledge search/RAG
 - Add WITS/WITSML live rig data feed
 - Add MWDRun log import
