@@ -14,25 +14,25 @@ from engine.procedures import PROCEDURES
 
 RIG_MARK_SVG = """
 <svg aria-hidden="true" width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-  <path d="M24 4 8 44h32L24 4Z" fill="none" stroke="#f97316" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M24 4 8 44h32L24 4Z" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linejoin="round"/>
   <path d="M24 4v40M14 28h20M18 18h12M13 40l22-28M35 40 13 12" fill="none" stroke="#f8fafc" stroke-width="2.4" stroke-linecap="round"/>
-  <path d="M20 44h8" stroke="#f97316" stroke-width="3" stroke-linecap="round"/>
+  <path d="M20 44h8" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
 </svg>
 """
 
-st.set_page_config(page_title="MWD Coach AI", page_icon="🛢️", layout="wide")
+st.set_page_config(page_title="SDI FieldOps AI", page_icon="🔷", layout="wide")
 
 APP_STYLES = """
 <style>
 :root {
-    --mwd-bg: #0b1117;
-    --mwd-panel: #111923;
-    --mwd-panel-soft: #151f2b;
-    --mwd-line: #2b3a48;
-    --mwd-text: #e6edf3;
-    --mwd-muted: #9fb0bf;
-    --mwd-accent: #f97316;
-    --mwd-blue: #38bdf8;
+    --mwd-bg: #07111f;
+    --mwd-panel: #0d1b2a;
+    --mwd-panel-soft: #132238;
+    --mwd-line: #334155;
+    --mwd-text: #e5e7eb;
+    --mwd-muted: #a7b0bc;
+    --mwd-accent: #cbd5e1;
+    --mwd-blue: #7c8ea3;
     --mwd-green: #22c55e;
 }
 
@@ -43,7 +43,7 @@ APP_STYLES = """
 
 [data-testid="stAppViewContainer"] > .main {
     background:
-        linear-gradient(180deg, rgba(56, 189, 248, 0.05), transparent 260px),
+        linear-gradient(180deg, rgba(203, 213, 225, 0.08), transparent 260px),
         var(--mwd-bg);
 }
 
@@ -62,7 +62,7 @@ APP_STYLES = """
 }
 
 section[data-testid="stSidebar"] {
-    background: #111820;
+    background: #081524;
     border-right: 1px solid var(--mwd-line);
 }
 
@@ -94,7 +94,7 @@ section[data-testid="stSidebar"] h3 {
     flex: 0 0 64px;
     border: 1px solid var(--mwd-line);
     border-radius: 8px;
-    background: #101923;
+    background: #0d1b2a;
 }
 
 .rig-logo svg {
@@ -149,13 +149,13 @@ div[data-testid="stTabs"] button[data-baseweb="tab"] {
 button[data-baseweb="tab"]:hover,
 div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
     color: var(--mwd-text);
-    background: rgba(56, 189, 248, 0.08);
+    background: rgba(203, 213, 225, 0.08);
 }
 
 button[data-baseweb="tab"][aria-selected="true"],
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
     color: var(--mwd-accent);
-    background: rgba(249, 115, 22, 0.08);
+    background: rgba(203, 213, 225, 0.12);
 }
 
 [data-baseweb="tab-highlight"],
@@ -176,7 +176,7 @@ div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
 
 [data-testid="stFileUploader"] section {
     background: var(--mwd-panel);
-    border: 1px dashed #436174;
+    border: 1px dashed #64748b;
     border-radius: 8px;
 }
 
@@ -184,17 +184,17 @@ div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
 .stButton > button,
 [data-testid="stDownloadButton"] button {
     border-radius: 8px;
-    border: 1px solid rgba(249, 115, 22, 0.55);
+    border: 1px solid rgba(203, 213, 225, 0.72);
     background: var(--mwd-accent);
-    color: #111820;
+    color: #07111f;
     font-weight: 700;
 }
 
 .stButton > button:hover,
 [data-testid="stDownloadButton"] button:hover {
-    border-color: #fed7aa;
-    background: #fb923c;
-    color: #111820;
+    border-color: #f8fafc;
+    background: #e5e7eb;
+    color: #07111f;
 }
 
 [data-testid="stExpander"] {
@@ -717,7 +717,7 @@ def survey_warnings(fields, current):
 
 def build_report(job, data, causes, steps, pump_score=None, pump_flags=None):
     lines = [
-        "MWD Coach AI Troubleshooting Report",
+        "SDI FieldOps AI Troubleshooting Report",
         f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"Rig/Well: {job.get('rig','')}",
         f"Operator: {job.get('operator','')}",
@@ -752,12 +752,12 @@ st.markdown(APP_STYLES, unsafe_allow_html=True)
 
 st.markdown(
     f"""
-    <div class="app-header" style="display:flex;align-items:center;gap:1rem;padding:0.8rem 0 1.2rem;margin-bottom:0.85rem;border-bottom:1px solid #2b3a48;">
-        <span class="rig-logo" style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;flex:0 0 64px;border:1px solid #2b3a48;border-radius:8px;background:#101923;">{RIG_MARK_SVG}</span>
+    <div class="app-header" style="display:flex;align-items:center;gap:1rem;padding:0.8rem 0 1.2rem;margin-bottom:0.85rem;border-bottom:1px solid #334155;">
+        <span class="rig-logo" style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;flex:0 0 64px;border:1px solid #334155;border-radius:8px;background:#0d1b2a;">{RIG_MARK_SVG}</span>
         <div class="app-title-block" style="min-width:0;">
-            <div class="app-kicker" style="margin:0 0 0.18rem;color:#38bdf8;font-size:0.78rem;font-weight:700;letter-spacing:0;text-transform:uppercase;">MWD Field Ops</div>
-            <h1 style="margin:0;color:#e6edf3;line-height:1.05;font-size:3rem;letter-spacing:0;">MWD Coach AI</h1>
-            <p style="margin:0.55rem 0 0;color:#9fb0bf;font-size:0.98rem;line-height:1.45;">Real-time MWD troubleshooting assistant for mud pulse decode, pump diagnostics, survey checks, verified procedures, and field case capture.</p>
+            <div class="app-kicker" style="margin:0 0 0.18rem;color:#cbd5e1;font-size:0.78rem;font-weight:700;letter-spacing:0;text-transform:uppercase;">Scientific Drilling International</div>
+            <h1 style="margin:0;color:#e5e7eb;line-height:1.05;font-size:3rem;letter-spacing:0;">SDI FieldOps AI</h1>
+            <p style="margin:0.55rem 0 0;color:#a7b0bc;font-size:0.98rem;line-height:1.45;">Scientific Drilling International field operations prototype for MWD troubleshooting, survey checks, verified procedures, and case capture.</p>
         </div>
     </div>
     """,
@@ -773,7 +773,7 @@ with st.sidebar:
     for manual in MANUALS:
         st.checkbox(manual, value=True, key=f"manual_{manual}")
     st.divider()
-    st.caption("Prototype only. Follow company procedures, rig-site authority, and engineering guidance.")
+    st.caption("Scientific Drilling International prototype. Follow SDI procedures, rig-site authority, and engineering guidance.")
 
 job = {"rig": rig, "operator": operator}
 
@@ -1272,7 +1272,7 @@ with tab4:
 
 with tab5:
     st.subheader("Capture New Field Case")
-    st.write("Save real cases so MWD Coach AI can learn from field history.")
+    st.write("Save real cases so SDI FieldOps AI can learn from field history.")
     case_id = st.text_input("Case ID", f"KB-{datetime.now().strftime('%Y%m%d-%H%M')}")
     title = st.text_input("Case Title", "")
     tool_type = st.text_input("Tool Type", "MPX")
