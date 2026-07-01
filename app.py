@@ -7,6 +7,10 @@ from pathlib import Path
 
 import streamlit as st
 
+from engine.alert_engine import analyze_mwd_data
+from engine.case_log import load_cases, save_case
+from engine.procedures import PROCEDURES
+
 RIG_MARK_SVG = """
 <svg aria-hidden="true" width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
   <path d="M24 4 8 44h32L24 4Z" fill="none" stroke="#f97316" stroke-width="3" stroke-linejoin="round"/>
@@ -532,7 +536,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-st.caption("MWD troubleshooting assistant for mud pulse decode, pump diagnostics, SHT cases, and field case capture.")
+st.caption("Real-time MWD troubleshooting assistant for mud pulse decode, pump diagnostics, survey checks, verified procedures, and field case capture.")
 
 with st.sidebar:
     st.header("Job Info")
@@ -547,7 +551,90 @@ with st.sidebar:
 
 job = {"rig": rig, "operator": operator}
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Diagnose", "Pump Diagnostics AI", "Survey Program Analyzer", "KB-0001 Case", "New Field Case"])
+live_tab, tab1, tab2, tab3, procedures_tab, history_tab, tab4, tab5 = st.tabs(
+    [
+        "Live Monitor",
+        "Diagnose",
+        "Pump Diagnostics AI",
+        "Survey Program Analyzer",
+        "Verified Procedures",
+        "Case History",
+        "KB-0001 Case",
+        "New Field Case",
+    ]
+)
+
+with live_tab:
+    st.subheader("Live Data Monitor")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        live_spp = st.number_input("Standpipe Pressure (psi)", min_value=0.0, value=4568.0, step=25.0, key="live_spp")
+        live_pump_rate = st.number_input("Pump Rate (GPM)", min_value=0.0, value=352.0, step=5.0, key="live_pump_rate")
+        live_flow = st.number_input("Flow (%)", min_value=0.0, value=45.0, step=1.0, key="live_flow")
+        live_pulse_pressure = st.number_input("Pulse Pressure (psi)", min_value=0.0, value=16.7, step=0.5, key="live_pulse_pressure")
+    with col2:
+        live_decode_confidence = st.number_input("Decode Confidence (%)", min_value=0.0, max_value=100.0, value=100.0, step=1.0, key="live_decode_confidence")
+        live_correlation = st.number_input("Correlation", min_value=0.0, value=96.2, step=0.1, key="live_correlation")
+        live_correlation_margin = st.number_input("Correlation Margin", min_value=0.0, value=29.0, step=0.5, key="live_correlation_margin")
+        live_sync_status = st.selectbox("Sync Status", ["HST", "Sync Hunt", "No Sync", "Poor Sync"], key="live_sync_status")
+    with col3:
+        live_wob = st.number_input("WOB (klb)", min_value=0.0, value=13.7, step=0.5, key="live_wob")
+        live_rpm = st.number_input("RPM", min_value=0.0, value=90.0, step=1.0, key="live_rpm")
+        live_torque = st.number_input("Torque (klb-ft)", min_value=0.0, value=9.0, step=0.5, key="live_torque")
+        live_lateral_vib = st.number_input("Lateral Vibration", min_value=0.0, value=16.7, step=0.5, key="live_lateral_vib")
+        live_stick_slip = st.number_input("Stick-Slip Risk", min_value=0.0, value=0.0, step=0.5, key="live_stick_slip")
+
+    live_data = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "rig_well": rig,
+        "operator": operator,
+        "spp": live_spp,
+        "pump_rate": live_pump_rate,
+        "flow": live_flow,
+        "pulse_pressure": live_pulse_pressure,
+        "decode_confidence": live_decode_confidence,
+        "correlation": live_correlation,
+        "correlation_margin": live_correlation_margin,
+        "sync_status": live_sync_status,
+        "wob": live_wob,
+        "rpm": live_rpm,
+        "torque": live_torque,
+        "lateral_vib": live_lateral_vib,
+        "stick_slip": live_stick_slip,
+    }
+    live_alerts = analyze_mwd_data(live_data)
+
+    st.subheader("AI Assessment")
+    if not live_alerts:
+        st.success("No major abnormalities detected. Continue monitoring.")
+    else:
+        for alert in live_alerts:
+            if alert["level"] == "CRITICAL":
+                st.error(f'{alert["level"]}: {alert["problem"]}')
+            elif alert["level"] == "WARNING":
+                st.warning(f'{alert["level"]}: {alert["problem"]}')
+            else:
+                st.info(f'{alert["level"]}: {alert["problem"]}')
+
+            st.markdown("**Evidence**")
+            for item in alert["evidence"]:
+                st.write(f"- {item}")
+
+            st.markdown("**Likely Cause**")
+            st.write(alert["likely_cause"])
+
+            st.markdown("**Recommended Action**")
+            for step in alert["recommended_action"]:
+                st.write(f"- {step}")
+
+            st.markdown("**Verified Procedure Source**")
+            st.write(alert["procedure_source"])
+            st.divider()
+
+    if st.button("Save Current Monitor Case", key="save_live_monitor_case"):
+        save_case(live_data, live_alerts)
+        st.success("Case saved to Case History.")
 
 with tab1:
     st.subheader("Guided Troubleshooting")
@@ -801,6 +888,37 @@ with tab3:
         st.download_button("Download Survey Program JSON", json.dumps(payload, indent=2), file_name=out.name)
 
 
+with procedures_tab:
+    st.subheader("Verified Procedure Library")
+    for proc in PROCEDURES:
+        with st.expander(f'{proc["id"]} - {proc["title"]}'):
+            st.write(f'**Status:** {proc["verification_status"]}')
+            st.write(f'**Source:** {proc["source"]}')
+            st.write(f'**Revision:** {proc["revision"]}')
+            st.write(f'**Last Reviewed:** {proc["last_reviewed"]}')
+            st.write(f'**Reviewed By:** {proc["reviewed_by"]}')
+
+            st.markdown("**Procedure Steps**")
+            for step in proc["steps"]:
+                st.write(f"- {step}")
+
+            st.markdown("**Field Notes**")
+            for note in proc["field_notes"]:
+                st.write(f"- {note}")
+
+
+with history_tab:
+    st.subheader("Case History")
+    monitor_cases = load_cases()
+    if not monitor_cases:
+        st.info("No live-monitor cases saved yet.")
+    else:
+        for case in reversed(monitor_cases):
+            title = f'{case.get("timestamp", "Unknown time")} - {len(case.get("alerts", []))} alert(s)'
+            with st.expander(title):
+                st.json(case)
+
+
 with tab4:
     st.subheader(f"{KB_0001['id']} — {KB_0001['title']}")
     st.write(f"**Category:** {KB_0001['category']}")
@@ -848,4 +966,4 @@ with tab5:
         st.download_button("Download Case JSON", json.dumps(case, indent=2), file_name=out.name)
 
 st.divider()
-st.caption("Next build: connect WITS/WITSML/CSV/MWDRun logs and add PDF RAG search over the uploaded manuals.")
+st.caption("Next build: connect WITS/WITSML/CSV/MWDRun logs, add trend detection, and add PDF RAG search over the uploaded manuals.")
