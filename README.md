@@ -1,6 +1,6 @@
 # SDI FieldOps AI
 
-Scientific Drilling International field operations prototype for real-time MWD monitoring, screenshot review, mud pulse troubleshooting, pump diagnostics, survey program checks, verified procedures, and field case capture.
+Scientific Drilling International field operations prototype for real-time MWD monitoring, HALO RSS vibration workflows, MSE / ROP drilling optimization, screenshot review, mud pulse troubleshooting, pump diagnostics, survey program checks, verified procedures, and field case capture.
 
 ## Run locally
 
@@ -16,6 +16,20 @@ streamlit run app.py
   - Alerts for no sync, weak pulses, decode confidence/correlation drops, lateral vibration, and stick-slip risk
   - Evidence, likely cause, recommended action, and verified procedure source for each alert
   - Save monitor snapshots into Case History
+- Enterprise Dashboard
+  - Combined MWD + HALO RSS + MSE assessment
+  - Drilling Stability Score
+  - Active alert count and sync status summary
+  - Saves enterprise dashboard snapshots into Case History
+- HALO RSS Coach
+  - HFTO workflow
+  - Bit whirl / lateral vibration workflow
+  - Stick-slip / torsional vibration workflow
+  - Delta Vibes, shock count, torsional vibration, and torque oscillation inputs
+- Optimization AI
+  - Approximate MSE calculation from WOB, torque, RPM, ROP, and bit size
+  - MSE / ROP efficiency advisory
+  - Stability warning when optimization should defer to vibration mitigation
 - Screenshot Review
   - Upload MWDRun, Pason, EDR, RSS, or rig-display screenshots
   - Preview uploaded images in the app
@@ -45,6 +59,9 @@ streamlit run app.py
   - Saves survey program JSON records
 - Verified Procedure Library
   - KB-0001 through KB-0004 procedure tracking
+  - HALO-0001 through HALO-0003 vibration workflow records
+  - OPT-0001 MSE / ROP efficiency screening record
+  - Module filter and keyword search
   - Verification status, source, revision, review date, procedure steps, and field notes
 - Case History
   - Loads saved live-monitor cases
@@ -74,5 +91,6 @@ streamlit run app.py
 - Add WITS/WITSML live rig data feed
 - Add MWDRun log import
 - Add waveform/spectrogram analysis
+- Tune HALO and MSE thresholds by basin, BHA, bit type, and formation
 - Add trend plots by pump number and rig
 - Add SME approval workflow for procedure revisions
