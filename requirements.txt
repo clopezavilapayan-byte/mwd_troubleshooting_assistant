@@ -1,4 +1,4 @@
 streamlit==1.36.0
 pypdf==4.2.0
 
-# Deployment refresh for styled interface.
+# Deployment refresh for SDI enterprise v2 update.
