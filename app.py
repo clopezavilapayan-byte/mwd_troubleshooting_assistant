@@ -9,7 +9,9 @@ import streamlit as st
 
 from engine.alert_engine import analyze_mwd_data
 from engine.case_log import load_cases, save_case
+from engine.halo_rss import drilling_stability_score, halo_rss_assessment
 from engine.image_analyzer import create_image_review_case, save_uploaded_image
+from engine.optimization import optimization_advice
 from engine.procedures import PROCEDURES
 
 RIG_MARK_SVG = """
@@ -20,7 +22,7 @@ RIG_MARK_SVG = """
 </svg>
 """
 
-st.set_page_config(page_title="SDI FieldOps AI", page_icon="🔷", layout="wide")
+st.set_page_config(page_title="SDI FieldOps AI", page_icon="S", layout="wide")
 
 APP_STYLES = """
 <style>
@@ -744,6 +746,83 @@ def build_report(job, data, causes, steps, pump_score=None, pump_flags=None):
     lines += [f"{i}. [{s['priority']}] {s['title']} ({s['area']}): {s['details']}" for i, s in enumerate(steps, 1)]
     return "\n".join(lines)
 
+
+def collect_enterprise_inputs(prefix, rig="", operator=""):
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        spp = st.number_input("Standpipe Pressure (psi)", min_value=0.0, value=4568.0, step=25.0, key=f"{prefix}_spp")
+        pump_rate = st.number_input("Pump Rate (GPM)", min_value=0.0, value=352.0, step=5.0, key=f"{prefix}_pump_rate")
+        flow = st.number_input("Flow (%)", min_value=0.0, value=45.0, step=1.0, key=f"{prefix}_flow")
+        pulse_pressure = st.number_input("Pulse Pressure (psi)", min_value=0.0, value=16.7, step=0.5, key=f"{prefix}_pulse")
+    with col2:
+        decode_confidence = st.number_input("Decode Confidence (%)", min_value=0.0, max_value=100.0, value=100.0, step=1.0, key=f"{prefix}_decode")
+        correlation = st.number_input("Correlation", min_value=0.0, value=96.2, step=0.1, key=f"{prefix}_correlation")
+        correlation_margin = st.number_input("Correlation Margin", min_value=0.0, value=29.0, step=0.5, key=f"{prefix}_margin")
+        sync_status = st.selectbox("Sync Status", ["HST", "Sync Hunt", "No Sync", "Poor Sync"], key=f"{prefix}_sync")
+    with col3:
+        wob = st.number_input("WOB (klb)", min_value=0.0, value=13.7, step=0.5, key=f"{prefix}_wob")
+        rpm = st.number_input("RPM", min_value=0.0, value=90.0, step=1.0, key=f"{prefix}_rpm")
+        torque = st.number_input("Torque (klb-ft)", min_value=0.0, value=9.0, step=0.5, key=f"{prefix}_torque")
+        rop = st.number_input("ROP (ft/hr)", min_value=0.0, value=80.0, step=1.0, key=f"{prefix}_rop")
+        bit_diameter = st.number_input("Bit Diameter (in)", min_value=0.0, value=8.5, step=0.125, key=f"{prefix}_bit")
+    with col4:
+        lateral_vib = st.number_input("Lateral Vibration (g)", min_value=0.0, value=3.0, step=0.5, key=f"{prefix}_lat")
+        axial_vib = st.number_input("Axial Vibration (g)", min_value=0.0, value=1.0, step=0.5, key=f"{prefix}_axial")
+        torsional_vib = st.number_input("Torsional Vibration", min_value=0.0, value=0.0, step=0.5, key=f"{prefix}_torsion")
+        delta_vibes = st.number_input("Delta Vibes RMS (g)", min_value=0.0, value=0.0, step=0.5, key=f"{prefix}_delta")
+        shock_count = st.number_input("Shock Count", min_value=0.0, value=0.0, step=1.0, key=f"{prefix}_shock")
+        stick_slip = st.number_input("Stick-Slip Indicator / Risk", min_value=0.0, value=0.0, step=0.5, key=f"{prefix}_stick")
+        torque_oscillation = st.checkbox("Erratic / oscillating surface torque", key=f"{prefix}_torqueosc")
+    return {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "rig_well": rig,
+        "operator": operator,
+        "spp": spp,
+        "pump_rate": pump_rate,
+        "flow": flow,
+        "pulse_pressure": pulse_pressure,
+        "decode_confidence": decode_confidence,
+        "correlation": correlation,
+        "correlation_margin": correlation_margin,
+        "sync_status": sync_status,
+        "wob": wob,
+        "rpm": rpm,
+        "torque": torque,
+        "rop": rop,
+        "bit_diameter": bit_diameter,
+        "lateral_vib": lateral_vib,
+        "axial_vib": axial_vib,
+        "torsional_vib": torsional_vib,
+        "delta_vibes": delta_vibes,
+        "shock_count": shock_count,
+        "stick_slip": stick_slip,
+        "torque_oscillation": torque_oscillation,
+    }
+
+
+def render_engine_alert(alert):
+    level = alert.get("level", "INFO")
+    module = alert.get("module", "SDI FieldOps AI")
+    title = f'{module}: {level} - {alert.get("problem", "Review required")}'
+    if level == "CRITICAL":
+        st.error(title)
+    elif level == "WARNING":
+        st.warning(title)
+    else:
+        st.info(title)
+    if "confidence" in alert:
+        st.write(f'**Confidence:** {alert["confidence"]}%')
+    st.markdown("**Evidence**")
+    for item in alert.get("evidence", []):
+        st.write(f"- {item}")
+    st.markdown("**Likely Cause**")
+    st.write(alert.get("likely_cause", "Pending SME review."))
+    st.markdown("**Recommended Action**")
+    for step in alert.get("recommended_action", []):
+        st.write(f"- {step}")
+    st.caption(f'Procedure source: {alert.get("procedure_source", "Prototype")}. Validate against active SDI/OEM procedure before action.')
+    st.divider()
+
 # -----------------------------
 # UI
 # -----------------------------
@@ -757,7 +836,7 @@ st.markdown(
         <div class="app-title-block" style="min-width:0;">
             <div class="app-kicker" style="margin:0 0 0.18rem;color:#cbd5e1;font-size:0.78rem;font-weight:700;letter-spacing:0;text-transform:uppercase;">Scientific Drilling International</div>
             <h1 style="margin:0;color:#e5e7eb;line-height:1.05;font-size:3rem;letter-spacing:0;">SDI FieldOps AI</h1>
-            <p style="margin:0.55rem 0 0;color:#a7b0bc;font-size:0.98rem;line-height:1.45;">Scientific Drilling International field operations prototype for MWD troubleshooting, survey checks, verified procedures, and case capture.</p>
+            <p style="margin:0.55rem 0 0;color:#a7b0bc;font-size:0.98rem;line-height:1.45;">Scientific Drilling International field operations prototype for MWD troubleshooting, HALO RSS vibration workflows, survey checks, drilling optimization, verified procedures, and case capture.</p>
         </div>
     </div>
     """,
@@ -777,12 +856,15 @@ with st.sidebar:
 
 job = {"rig": rig, "operator": operator}
 
-live_tab, screenshot_tab, tab1, tab2, tab3, procedures_tab, history_tab, tab4, tab5 = st.tabs(
+live_tab, enterprise_tab, screenshot_tab, tab1, tab2, halo_tab, optimization_tab, tab3, procedures_tab, history_tab, tab4, tab5 = st.tabs(
     [
         "Live Monitor",
+        "Enterprise Dashboard",
         "Screenshot Review",
         "Diagnose",
         "Pump Diagnostics AI",
+        "HALO RSS Coach",
+        "Optimization AI",
         "Survey Program Analyzer",
         "Verified Procedures",
         "Case History",
@@ -862,6 +944,39 @@ with live_tab:
     if st.button("Save Current Monitor Case", key="save_live_monitor_case"):
         save_case(live_data, live_alerts)
         st.success("Case saved to Case History.")
+
+
+with enterprise_tab:
+    st.subheader("Enterprise Rig Dashboard")
+    st.write("Combined MWD telemetry, HALO RSS vibration screening, drilling stability, and MSE / ROP efficiency advisory.")
+
+    enterprise_data = collect_enterprise_inputs("enterprise", rig, operator)
+    mwd_alerts = analyze_mwd_data(enterprise_data)
+    halo_alerts = halo_rss_assessment(enterprise_data)
+    mse, advice = optimization_advice(enterprise_data)
+    stability_score = drilling_stability_score(enterprise_data)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Drilling Stability", f"{stability_score}%")
+    c2.metric("Active Alerts", len(mwd_alerts) + len(halo_alerts))
+    c3.metric("MSE", f"{mse:,.0f} psi" if mse else "N/A")
+    c4.metric("Sync", enterprise_data["sync_status"])
+
+    st.subheader("AI Assessment")
+    if not mwd_alerts and not halo_alerts:
+        st.success("No major MWD or HALO RSS abnormalities detected.")
+    for alert in mwd_alerts + halo_alerts:
+        render_engine_alert(alert)
+    for item in advice:
+        st.info(item)
+
+    if st.button("Save Enterprise Dashboard Case", key="save_enterprise_dashboard_case"):
+        case_data = dict(enterprise_data)
+        case_data["source"] = "Enterprise Dashboard"
+        case_data["mse"] = mse
+        case_data["drilling_stability_score"] = stability_score
+        save_case(case_data, mwd_alerts + halo_alerts)
+        st.success("Enterprise dashboard case saved to Case History.")
 
 
 with screenshot_tab:
@@ -1119,6 +1234,64 @@ with tab2:
         if pump_changed:
             st.info(f"Pump change note: {new_pump_result}")
 
+
+with halo_tab:
+    st.subheader("HALO RSS Vibration + Dysfunction Advisor")
+    st.info("Includes HFTO, bit whirl / lateral vibration, and stick-slip / torsional vibration workflows. Validate all actions with active SDI and OEM procedures.")
+
+    halo_data = collect_enterprise_inputs("halo", rig, operator)
+    halo_score = drilling_stability_score(halo_data)
+    halo_alerts = halo_rss_assessment(halo_data)
+
+    h1, h2, h3 = st.columns(3)
+    h1.metric("Drilling Stability Score", f"{halo_score}%")
+    h2.metric("HALO Alerts", len(halo_alerts))
+    h3.metric("Delta Vibes", f'{halo_data["delta_vibes"]} g RMS')
+
+    if not halo_alerts:
+        st.success("No HALO RSS vibration workflow trigger detected.")
+    for alert in halo_alerts:
+        render_engine_alert(alert)
+
+    if st.button("Save HALO RSS Case", key="save_halo_case"):
+        case_data = dict(halo_data)
+        case_data["source"] = "HALO RSS Coach"
+        case_data["drilling_stability_score"] = halo_score
+        save_case(case_data, halo_alerts)
+        st.success("HALO RSS case saved to Case History.")
+
+
+with optimization_tab:
+    st.subheader("MSE / ROP Efficiency Advisor")
+    st.write("Use this as a drilling-optimization screening tool alongside vibration, torque, WOB, RPM, ROP, and formation context.")
+
+    opt_data = collect_enterprise_inputs("optimization", rig, operator)
+    opt_mse, opt_advice = optimization_advice(opt_data)
+    opt_score = drilling_stability_score(opt_data)
+
+    o1, o2, o3 = st.columns(3)
+    o1.metric("Approximate MSE", f"{opt_mse:,.0f} psi" if opt_mse else "N/A")
+    o2.metric("ROP", f'{opt_data["rop"]} ft/hr')
+    o3.metric("Drilling Stability", f"{opt_score}%")
+
+    for item in opt_advice:
+        st.info(item)
+    if opt_score < 70:
+        st.warning("Drilling stability is reduced. Review HALO RSS vibration workflow before using MSE alone to guide parameter changes.")
+    else:
+        st.success("Stability inputs look acceptable for trending MSE against ROP and drilling parameters.")
+
+    st.caption("Prototype logic: MSE is advisory only. Do not use MSE by itself to command parameter changes.")
+
+    if st.button("Save Optimization Case", key="save_optimization_case"):
+        case_data = dict(opt_data)
+        case_data["source"] = "Optimization AI"
+        case_data["mse"] = opt_mse
+        case_data["drilling_stability_score"] = opt_score
+        save_case(case_data, [])
+        st.success("Optimization case saved to Case History.")
+
+
 with tab3:
     st.subheader("Survey Program Analyzer")
     st.write("Upload a survey program PDF or enter values manually. The app extracts key well, geomagnetic, and survey QC fields and compares them to the current setup.")
@@ -1228,8 +1401,29 @@ with tab3:
 
 with procedures_tab:
     st.subheader("Verified Procedure Library")
+    modules = ["All"] + sorted(set(proc.get("module", "MWD Coach") for proc in PROCEDURES))
+    selected_module = st.selectbox("Filter by module", modules, key="procedure_module_filter")
+    procedure_search = st.text_input("Search procedures", key="procedure_search")
+    visible_procedures = 0
+
     for proc in PROCEDURES:
+        if selected_module != "All" and proc.get("module", "MWD Coach") != selected_module:
+            continue
+        searchable_text = " ".join(
+            [
+                proc.get("id", ""),
+                proc.get("module", ""),
+                proc.get("title", ""),
+                proc.get("source", ""),
+                " ".join(proc.get("steps", [])),
+                " ".join(proc.get("field_notes", [])),
+            ]
+        ).lower()
+        if procedure_search and procedure_search.lower() not in searchable_text:
+            continue
+        visible_procedures += 1
         with st.expander(f'{proc["id"]} - {proc["title"]}'):
+            st.write(f'**Module:** {proc.get("module", "MWD Coach")}')
             st.write(f'**Status:** {proc["verification_status"]}')
             st.write(f'**Source:** {proc["source"]}')
             st.write(f'**Revision:** {proc["revision"]}')
@@ -1243,6 +1437,9 @@ with procedures_tab:
             st.markdown("**Field Notes**")
             for note in proc["field_notes"]:
                 st.write(f"- {note}")
+
+    if visible_procedures == 0:
+        st.info("No procedures match the current filter.")
 
 
 with history_tab:
@@ -1304,4 +1501,4 @@ with tab5:
         st.download_button("Download Case JSON", json.dumps(case, indent=2), file_name=out.name)
 
 st.divider()
-st.caption("Next build: connect WITS/WITSML/CSV/MWDRun logs, add trend detection, and add PDF RAG search over the uploaded manuals.")
+st.caption("Next build: connect WITS/WITSML/CSV/MWDRun logs, add trend detection, add OCR extraction, and add PDF RAG search over the uploaded manuals.")
